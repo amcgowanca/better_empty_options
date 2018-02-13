@@ -1,0 +1,8 @@
+name = Better empty options
+description = Provides a mechanism for overriding default empty options.
+core = 7.x
+version 7.x-1.0
+package = Better empty options
+
+dependencies[] = list
+dependencies[] = options

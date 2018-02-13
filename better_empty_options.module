@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * @file
+ * Provides a mechanism for overriding default empty options.
+ */
+
+/**
+ * Implements hook_form_BASE_ID_alter().
+ */
+function better_empty_options_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+  if (!isset($form['#instance'])) {
+    return;
+  }
+
+  if (!in_array($form['#instance']['widget']['type'], _better_empty_options_valid_widget_types())) {
+    return;
+  }
+
+  $field_settings = &$form['#field']['settings'];
+  $field_settings += array(
+    'better_empty_options' => array(
+      'empty_label' => '',
+      'empty_value' => '',
+    ),
+  );
+
+  $form['field']['settings']['better_empty_options'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Better empty options'),
+    '#description' => t('Allows for overriding the empty option properties. Typically used only when the field is not required and cardinality is one.'),
+  );
+  $form['field']['settings']['better_empty_options']['empty_label'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Empty label override'),
+    '#description' => t('Overrides the default empty label value.'),
+    '#default_value' => $field_settings['better_empty_options']['empty_label'],
+    '#maxlength' => 255,
+    '#size' => 60,
+  );
+}
+
+/**
+ * Implements hook_field_widget_form_alter().
+ */
+function better_empty_options_field_widget_form_alter(&$element, &$form_state, $context) {
+  if (!isset($context['field']) || !isset($context['instance'])) {
+    return;
+  }
+
+  $field = &$context['field'];
+  $instance = &$context['instance'];
+  if (!empty($instance['widget']) && in_array($instance['widget']['type'], _better_empty_options_valid_widget_types())) {
+    if (isset($field['settings']['better_empty_options'])) {
+      $better_empty_options = $field['settings']['better_empty_options'];
+      if (!empty($better_empty_options['empty_label'])) {
+        switch ($instance['widget']['type']) {
+          case 'options_select':
+            $element['#empty_option'] = check_plain($better_empty_options['empty_label']);
+            if (isset($element['#options']['_none'])) {
+              unset($element['#options']['_none']);
+              $element['#empty_value'] = '_none';
+            }
+            break;
+
+          default:
+            // Only process radio buttons, as checkbox based widgets are the
+            // result of a field cardinality not equal to one. If this is the
+            // case, break, since we do not want to process them.
+            if ($field['cardinality'] != 1) {
+              break;
+            }
+
+            if (!isset($element['#options']['_none'])) {
+              $temp_store = $element['#options'];
+              $element['#options'] = array('_none' => t('N/A')) + $temp_store;
+            }
+            $element['#options']['_none'] = check_plain($better_empty_options['empty_label']);
+            break;
+        }
+
+      }
+    }
+
+    if ($instance['widget']['type'] == 'options_buttons' && $field['cardinality'] == 1 && $element['#default_value'] === NULL) {
+      $element['#default_value'] = '_none';
+    }
+  }
+}
+
+/**
+ * Returns an array of valid widget types to allow for empty options.
+ *
+ * @return array
+ *   The array of widget type machine names.
+ */
+function _better_empty_options_valid_widget_types() {
+  return array(
+    'options_select',
+    'options_buttons',
+  );
+}
